@@ -23,12 +23,29 @@ function assetHtml(a){
  const sha=typeof a.digest==='string'&&/^sha256:[a-f0-9]{64}$/i.test(a.digest)?a.digest.slice(7):null;
  return '<div class="file-item"><div><strong>'+escapeHtml(a.name)+'</strong><small>'+escapeHtml(classify(a.name))+' · '+fmtSize(a.size)+'</small>'+(sha?'<code class="hash">SHA-256: '+sha+'</code>':'')+'</div><a class="file-btn" href="'+escapeHtml(link)+'" target="_blank" rel="noopener noreferrer" aria-label="Baixar '+escapeHtml(a.name)+'">Baixar ↗</a></div>';
 }
-function renderRelease(release){
- const files=(release.assets||[]).filter(a=>githubLink(a.browser_download_url));
- const isInstaller=files.some(a=>/\.(exe|msi)$/i.test(a.name)&&/(setup|instala|installer)/i.test(a.name));
- const published=release.published_at?new Date(release.published_at).toLocaleDateString('pt-BR',{timeZone:'UTC'}):'Data indisponível';
- area.innerHTML='<article class="download-card"><div class="card-head"><div><span class="tag">PUBLICAÇÃO DISPONÍVEL</span><h3>'+escapeHtml(release.name||release.tag_name)+'</h3><p>Publicada em '+escapeHtml(published)+' · Tag '+escapeHtml(release.tag_name)+'</p></div></div><div class="file-group">'+(files.length?files.map(assetHtml).join(''):'<p>Esta publicação não possui arquivos anexados.</p>')+'</div></article><aside class="note-card"><h3>Antes de baixar</h3><p>'+(isInstaller?'Há um arquivo identificado pelo nome como instalador. Confira a documentação antes de executar.':'Esta publicação não contém um instalador Windows completo identificado. Os arquivos podem ser destinados à atualização de uma instalação existente.')+'</p><ul><li>Confira plataforma e tipo de pacote.</li><li>Em produção, siga as orientações oficiais e preserve backup.</li><li>Compare o SHA-256, quando disponível.</li></ul><p><a href="'+RELEASES_PAGE+'" target="_blank" rel="noopener noreferrer">Consultar todas as versões no GitHub ↗</a></p></aside>';
+function isSetupAsset(a){
+ return /\.(exe|msi)$/i.test(a.name||'') && /(?:setup|instala(?:dor)?|installer)/i.test(a.name||'') && !!githubLink(a.browser_download_url);
 }
+function renderRelease(release){
+ const assets=(release.assets||[]).filter(a=>githubLink(a.browser_download_url));
+ const installers=assets.filter(isSetupAsset);
+ const updates=assets.filter(a=>!isSetupAsset(a));
+ const published=release.published_at?new Date(release.published_at).toLocaleDateString('pt-BR',{timeZone:'UTC'}):'Data indisponível';
+ const version=escapeHtml(release.tag_name);
+ const title=escapeHtml(release.name||release.tag_name);
+ const header='<article class="download-card"><div class="card-head"><div><span class="tag">VERSÃO OFICIAL DISPONÍVEL</span><h3>'+title+'</h3><p>Publicada em '+escapeHtml(published)+' · Tag '+version+'</p></div></div>';
+ if(installers.length){
+  // Para o cliente final, apresentar apenas o instalador único. Arquivos técnicos ficam na release.
+  area.innerHTML=header+'<div class="file-group">'+assetHtml(installers[0])+'</div></article>'+
+   '<aside class="note-card"><h3>Instalador Windows</h3><p>Baixe um único arquivo de instalação. Não é necessário extrair um ZIP para iniciar o assistente.</p><ul><li>Confira a versão e o SHA-256, quando disponível.</li><li>Para atualizar um estabelecimento existente, realize backup e siga as verificações do instalador.</li><li>O Windows poderá avisar sobre editor desconhecido em instaladores sem assinatura comercial.</li></ul><p><a href="'+RELEASES_PAGE+'" target="_blank" rel="noopener noreferrer">Ver detalhes da publicação no GitHub ↗</a></p></aside>';
+  return;
+ }
+ // Nunca promover ZIP de atualização a instalador completo.
+ const warning='<p><strong>O instalador Setup em arquivo único ainda não consta nesta publicação.</strong> Os arquivos abaixo são pacotes de atualização, não instaladores para primeiro uso.</p>';
+ area.innerHTML=header+warning+'<div class="file-group">'+(updates.length?updates.map(assetHtml).join(''):'<p>Sem arquivos de distribuição disponíveis.</p>')+'</div></article>'+
+ '<aside class="note-card"><h3>Instalação inicial</h3><p>Não há um Setup Windows completo publicado nesta versão. Não utilize o ZIP de atualização para uma instalação limpa.</p><ul><li>Atualizações em ambiente existente exigem o procedimento homologado.</li><li>Faça backup antes de qualquer atualização.</li><li>Assim que um Setup oficial for anexado a uma release estável, o site o destacará automaticamente.</li></ul><p><a href="'+RELEASES_PAGE+'" target="_blank" rel="noopener noreferrer">Conferir a publicação oficial ↗</a></p></aside>';
+}
+
 async function load(){
  try{
   const response=await fetch(RELEASES_API,{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
