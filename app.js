@@ -28,22 +28,24 @@ function isSetupAsset(a){
 }
 function renderRelease(release){
  const assets=(release.assets||[]).filter(a=>githubLink(a.browser_download_url));
- const installers=assets.filter(isSetupAsset);
- const updates=assets.filter(a=>!isSetupAsset(a));
+ const setup=assets.find(isSetupAsset);
+ const linux=assets.find(a=>/^comandaserp[_-].*amd64\.deb$/i.test(a.name||'') && !!githubLink(a.browser_download_url));
  const published=release.published_at?new Date(release.published_at).toLocaleDateString('pt-BR',{timeZone:'UTC'}):'Data indisponível';
  const version=escapeHtml(release.tag_name);
  const title=escapeHtml(release.name||release.tag_name);
- const header='<article class="download-card"><div class="card-head"><div><span class="tag">VERSÃO OFICIAL DISPONÍVEL</span><h3>'+title+'</h3><p>Publicada em '+escapeHtml(published)+' · Tag '+version+'</p></div></div>';
- if(installers.length){
-  // Para o cliente final, apresentar apenas o instalador único. Arquivos técnicos ficam na release.
-  area.innerHTML=header+'<div class="file-group">'+assetHtml(installers[0])+'</div></article>'+
-   '<aside class="note-card"><h3>Instalador Windows</h3><p>Baixe um único arquivo de instalação. Não é necessário extrair um ZIP para iniciar o assistente.</p><ul><li>Confira a versão e o SHA-256, quando disponível.</li><li>Para atualizar um estabelecimento existente, realize backup e siga as verificações do instalador.</li><li>O Windows poderá avisar sobre editor desconhecido em instaladores sem assinatura comercial.</li></ul><p><a href="'+RELEASES_PAGE+'" target="_blank" rel="noopener noreferrer">Ver detalhes da publicação no GitHub ↗</a></p></aside>';
+ const header='<article class="download-card"><div class="card-head"><div><span class="tag">VERSÃO OFICIAL</span><h3>'+title+'</h3><p>Publicada em '+escapeHtml(published)+' · Tag '+version+'</p></div></div>';
+ if(setup){
+  area.innerHTML=header+'<div class="file-group">'+assetHtml(setup)+'</div></article>'+
+   '<aside class="note-card"><h3>Instalação Windows</h3><p>O instalador vem em um único arquivo. Execute o Setup e siga as etapas exibidas.</p><ul><li>Confira a versão e o SHA-256, quando disponível.</li><li>Antes de instalar sobre um sistema em uso, preserve um backup.</li><li>O Windows pode alertar sobre editor desconhecido em arquivos sem assinatura comercial.</li></ul>'+
+   (linux?'<h3>Instalador Linux</h3>'+assetHtml(linux):'<p>Não há instalador Linux desta versão publicado no canal oficial.</p>')+
+   '</aside>';
   return;
  }
- // Nunca promover ZIP de atualização a instalador completo.
- const warning='<p><strong>O instalador Setup em arquivo único ainda não consta nesta publicação.</strong> Os arquivos abaixo são pacotes de atualização, não instaladores para primeiro uso.</p>';
- area.innerHTML=header+warning+'<div class="file-group">'+(updates.length?updates.map(assetHtml).join(''):'<p>Sem arquivos de distribuição disponíveis.</p>')+'</div></article>'+
- '<aside class="note-card"><h3>Instalação inicial</h3><p>Não há um Setup Windows completo publicado nesta versão. Não utilize o ZIP de atualização para uma instalação limpa.</p><ul><li>Atualizações em ambiente existente exigem o procedimento homologado.</li><li>Faça backup antes de qualquer atualização.</li><li>Assim que um Setup oficial for anexado a uma release estável, o site o destacará automaticamente.</li></ul><p><a href="'+RELEASES_PAGE+'" target="_blank" rel="noopener noreferrer">Conferir a publicação oficial ↗</a></p></aside>';
+ // Exibir apenas instaladores finais: nunca divulgar ZIPs de atualização como downloads do site.
+ area.innerHTML=header+'<p><strong>Instalador Windows desta versão ainda não disponível para download direto.</strong></p><p>Esta central publica somente instaladores completos. Nenhum pacote técnico de atualização será oferecido aqui.</p></article>'+
+ '<aside class="note-card"><h3>Disponibilidade</h3><p>O Setup Windows em arquivo único ainda não foi anexado à publicação oficial '+version+'.</p>'+
+ (linux?'<h3>Instalador Linux</h3>'+assetHtml(linux):'<p>O instalador Linux desta versão também não foi publicado.</p>')+
+ '<p>O software e as atualizações internas permanecem separados desta central de downloads.</p></aside>';
 }
 
 async function load(){
